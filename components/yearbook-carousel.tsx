@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import Image from "next/image"
-import { Card, CardContent } from "@/components/ui/card"
 import type { YearbookEntry } from "@/types"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { RealisticPageFlip } from "./realistic-page-flip"
+import Script from "next/script"
 
 interface YearbookCarouselProps {
   entries: YearbookEntry[]
@@ -14,21 +14,32 @@ interface YearbookCarouselProps {
 export function YearbookCarousel({ entries }: YearbookCarouselProps) {
   const [currentPage, setCurrentPage] = useState(0)
   const [mounted, setMounted] = useState(false)
+  const [isFlipping, setIsFlipping] = useState(false)
+  const [flipDirection, setFlipDirection] = useState<"next" | "prev">("next")
   const entriesPerPage = 4 // 2x2 grid
   const totalPages = Math.ceil(entries.length / entriesPerPage)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Handle changes in entries or total pages
+  useEffect(() => {
+    // If entries are deleted and current page is now out of bounds, adjust it
+    if (currentPage >= totalPages && totalPages > 0) {
+      setCurrentPage(totalPages - 1)
+    }
+  }, [totalPages, currentPage])
+
   // Reset to first page when entries change (new upload)
   useEffect(() => {
-    setCurrentPage(0)
+    // Only reset to first page for new entries, not for deletions
+    if (entries.length > 0 && totalPages > 0 && !isFlipping) {
+      // Reset the auto-advance timer when entries change
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
 
-    // Reset the auto-advance timer when new entries are added
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-    }
-
-    if (mounted) {
-      startAutoAdvance()
+      if (mounted) {
+        startAutoAdvance()
+      }
     }
   }, [entries.length])
 
@@ -45,7 +56,9 @@ export function YearbookCarousel({ entries }: YearbookCarouselProps) {
   // Start auto-advance timer
   const startAutoAdvance = () => {
     intervalRef.current = setInterval(() => {
-      setCurrentPage((prev) => (prev + 1) % totalPages)
+      if (totalPages > 1 && !isFlipping) {
+        handleNext()
+      }
     }, 10000)
   }
 
@@ -63,68 +76,78 @@ export function YearbookCarousel({ entries }: YearbookCarouselProps) {
   }, [totalPages, mounted, entries.length])
 
   const handlePrevious = () => {
-    setCurrentPage((prev) => (prev - 1 + totalPages) % totalPages)
+    if (isFlipping || totalPages <= 1) return // Prevent multiple flips at once
+
+    setFlipDirection("prev")
+    setIsFlipping(true)
 
     // Reset timer when manually navigating
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
     }
-    startAutoAdvance()
+
+    // Timer will be restarted after animation completes
   }
 
   const handleNext = () => {
-    setCurrentPage((prev) => (prev + 1) % totalPages)
+    if (isFlipping || totalPages <= 1) return // Prevent multiple flips at once
+
+    setFlipDirection("next")
+    setIsFlipping(true)
 
     // Reset timer when manually navigating
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
     }
+
+    // Timer will be restarted after animation completes
+  }
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage)
     startAutoAdvance()
   }
 
-  // Get current entries to display
-  const currentEntries = entries.slice(currentPage * entriesPerPage, (currentPage + 1) * entriesPerPage)
+  // Prepare pages data
+  const pages = Array.from({ length: totalPages }).map((_, index) => {
+    const pageEntries = entries.slice(index * entriesPerPage, (index + 1) * entriesPerPage)
 
-  // Fill with empty entries if less than 4
-  const displayEntries = [...currentEntries]
-  while (displayEntries.length < entriesPerPage) {
-    displayEntries.push({
-      id: `empty-${displayEntries.length}`,
-      image: "",
-      quote: "",
-      name: "",
-      created_at: "",
-    })
-  }
+    // Fill with empty entries if less than 4
+    const displayEntries = [...pageEntries]
+    while (displayEntries.length < entriesPerPage) {
+      displayEntries.push({
+        id: `empty-${index}-${displayEntries.length}`,
+        image: "",
+        quote: "",
+        name: "",
+        created_at: "",
+      })
+    }
+
+    return displayEntries
+  })
 
   return (
     <div className="relative w-full max-w-6xl mx-auto">
-      <div className="grid grid-cols-2 gap-4">
-        {displayEntries.map((entry) => (
-          <Card key={entry.id} className={`overflow-hidden ${!entry.image ? "opacity-0" : ""}`}>
-            <CardContent className="p-0 relative aspect-[4/3]">
-              {entry.image && (
-                <>
-                  <Image
-                    src={entry.image || "/placeholder.svg"}
-                    alt={`Photo of ${entry.name}`}
-                    fill
-                    className="object-cover"
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-3 text-white">
-                    <p className="text-sm italic">"{entry.quote}"</p>
-                    <p className="text-xs font-bold mt-1">- {entry.name}</p>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+      {/* Load GSAP from CDN */}
+      <Script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" strategy="beforeInteractive" />
+
+      <div className="relative w-full aspect-[4/3] perspective-1000">
+        {mounted && pages.length > 0 && (
+          <RealisticPageFlip
+            entries={pages}
+            currentPage={currentPage}
+            onPageChange={handlePageChange}
+            isFlipping={isFlipping}
+            setIsFlipping={setIsFlipping}
+            flipDirection={flipDirection}
+          />
+        )}
       </div>
 
       {totalPages > 1 && (
-        <div className="flex justify-center mt-4 gap-2">
-          <Button variant="outline" size="icon" onClick={handlePrevious} className="rounded-full">
+        <div className="flex justify-center mt-4 gap-2 z-50">
+          <Button variant="outline" size="icon" onClick={handlePrevious} className="rounded-full" disabled={isFlipping}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-1">
@@ -134,11 +157,23 @@ export function YearbookCarousel({ entries }: YearbookCarouselProps) {
                 variant={currentPage === index ? "default" : "outline"}
                 size="icon"
                 className="w-2 h-2 rounded-full p-0"
-                onClick={() => setCurrentPage(index)}
+                onClick={() => {
+                  if (isFlipping) return
+
+                  if (index > currentPage) {
+                    setFlipDirection("next")
+                  } else if (index < currentPage) {
+                    setFlipDirection("prev")
+                  } else {
+                    return
+                  }
+                  setIsFlipping(true)
+                }}
+                disabled={isFlipping}
               />
             ))}
           </div>
-          <Button variant="outline" size="icon" onClick={handleNext} className="rounded-full">
+          <Button variant="outline" size="icon" onClick={handleNext} className="rounded-full" disabled={isFlipping}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
