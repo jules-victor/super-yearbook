@@ -26,8 +26,8 @@ export async function uploadYearbookEntry(formData: FormData): Promise<{ success
     }
 
     // Upload image to Supabase Storage
-    const fileName = `${Date.now()}-${image.name || "captured-image.jpg"}`
-    const { data: fileData, error: fileError } = await supabase.storage.from("yearbook_images").upload(fileName, image)
+    const fileName = `${name}-${image.name || "captured-image.jpg"}`
+    const { data: fileData, error: fileError } = await supabase.storage.from("yearbook-images").upload(fileName, image)
 
     if (fileError) {
       console.error("Error uploading image:", fileError)
@@ -35,7 +35,7 @@ export async function uploadYearbookEntry(formData: FormData): Promise<{ success
     }
 
     // Get public URL for the uploaded image
-    const { data: urlData } = supabase.storage.from("yearbook_images").getPublicUrl(fileName)
+    const { data: urlData } = supabase.storage.from("yearbook-images").getPublicUrl(fileName)
 
     // Insert entry into database
     const { error: dbError } = await supabase.from("yearbook_entries").insert([

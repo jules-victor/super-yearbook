@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import type { YearbookEntry } from "@/types"
@@ -16,59 +16,97 @@ export function YearbookCarousel({ entries }: YearbookCarouselProps) {
   const [mounted, setMounted] = useState(false)
   const entriesPerPage = 4 // 2x2 grid
   const totalPages = Math.ceil(entries.length / entriesPerPage)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  console.log("in client: ", entries)
+  // Reset to first page when entries change (new upload)
+  useEffect(() => {
+    setCurrentPage(0)
+
+    // Reset the auto-advance timer when new entries are added
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+    }
+
+    if (mounted) {
+      startAutoAdvance()
+    }
+  }, [entries.length])
 
   // Mark when component is mounted on client
   useEffect(() => {
     setMounted(true)
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
   }, [])
+
+  // Start auto-advance timer
+  const startAutoAdvance = () => {
+    intervalRef.current = setInterval(() => {
+      setCurrentPage((prev) => (prev + 1) % totalPages)
+    }, 10000)
+  }
 
   // Auto-advance carousel every 10 seconds - only on client
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted || entries.length === 0) return
 
-    const interval = setInterval(() => {
-      setCurrentPage((prev) => (prev + 1) % totalPages)
-    }, 10000)
+    startAutoAdvance()
 
-    return () => clearInterval(interval)
-  }, [totalPages, mounted])
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [totalPages, mounted, entries.length])
 
   const handlePrevious = () => {
     setCurrentPage((prev) => (prev - 1 + totalPages) % totalPages)
+
+    // Reset timer when manually navigating
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+    }
+    startAutoAdvance()
   }
 
   const handleNext = () => {
     setCurrentPage((prev) => (prev + 1) % totalPages)
+
+    // Reset timer when manually navigating
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+    }
+    startAutoAdvance()
   }
 
   // Get current entries to display
   const currentEntries = entries.slice(currentPage * entriesPerPage, (currentPage + 1) * entriesPerPage)
 
   // Fill with empty entries if less than 4
-  /*
   const displayEntries = [...currentEntries]
   while (displayEntries.length < entriesPerPage) {
     displayEntries.push({
       id: `empty-${displayEntries.length}`,
-      image_url: "",
+      image: "",
       quote: "",
       name: "",
       created_at: "",
     })
-  }*/
+  }
 
   return (
     <div className="relative w-full max-w-6xl mx-auto">
       <div className="grid grid-cols-2 gap-4">
-        {currentEntries.map((entry) => (
+        {displayEntries.map((entry) => (
           <Card key={entry.id} className={`overflow-hidden ${!entry.image ? "opacity-0" : ""}`}>
             <CardContent className="p-0 relative aspect-[4/3]">
               {entry.image && (
                 <>
                   <Image
-                    src={entry.image|| "/placeholder.svg"}
+                    src={entry.image || "/placeholder.svg"}
                     alt={`Photo of ${entry.name}`}
                     fill
                     className="object-cover"
