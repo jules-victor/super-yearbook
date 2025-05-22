@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle, Camera, Upload } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { CameraCapture } from "@/components/camera-capture"
 
 export default function UploadPage() {
   const router = useRouter()
@@ -20,6 +21,8 @@ export default function UploadPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [showCamera, setShowCamera] = useState(false)
+  const [capturedImage, setCapturedImage] = useState<string | null>(null)
 
   // Use useEffect to mark when component is mounted on client
   useEffect(() => {
@@ -32,9 +35,16 @@ export default function UploadPage() {
       const reader = new FileReader()
       reader.onloadend = () => {
         setPreviewUrl(reader.result as string)
+        setCapturedImage(null) // Clear any captured image
       }
       reader.readAsDataURL(file)
     }
+  }
+
+  const handleCaptureImage = (imageData: string) => {
+    setCapturedImage(imageData)
+    setPreviewUrl(null) // Clear any uploaded image
+    setShowCamera(false)
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -44,6 +54,21 @@ export default function UploadPage() {
 
     try {
       const formData = new FormData(e.currentTarget)
+
+      // If we have a captured image, we need to convert it to a file and add it to formData
+      if (capturedImage) {
+        // Convert base64 to blob
+        const response = await fetch(capturedImage)
+        const blob = await response.blob()
+
+        // Create a File from the blob
+        const file = new File([blob], "captured-image.jpg", { type: "image/jpeg" })
+
+        // Replace any existing image in the formData
+        formData.delete("image")
+        formData.append("image", file)
+      }
+
       const result = await uploadYearbookEntry(formData)
 
       if (result.success) {
@@ -62,8 +87,19 @@ export default function UploadPage() {
     }
   }
 
+  // Check if the device has a camera
+  const [hasCamera, setHasCamera] = useState(false)
+
+  useEffect(() => {
+    if (mounted && navigator.mediaDevices && navigator.mediaDevices.getUserMedia != undefined) {
+      setHasCamera(true)
+    }
+  }, [mounted])
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-gray-50 to-gray-100">
+      {showCamera && mounted && <CameraCapture onCapture={handleCaptureImage} onClose={() => setShowCamera(false)} />}
+
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Add Your Yearbook Entry</CardTitle>
@@ -104,14 +140,14 @@ export default function UploadPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="image">Your Photo</Label>
+                <Label>Your Photo</Label>
                 <div className="flex flex-col items-center gap-4">
                   {mounted && (
                     <>
-                      {previewUrl ? (
+                      {previewUrl || capturedImage ? (
                         <div className="relative w-full h-48 rounded-md overflow-hidden">
                           <img
-                            src={previewUrl || "/placeholder.svg"}
+                            src={previewUrl || capturedImage || "/placeholder.svg"}
                             alt="Preview"
                             className="w-full h-full object-cover"
                           />
@@ -129,20 +165,33 @@ export default function UploadPage() {
                     </div>
                   )}
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full">
                     <Input
                       id="image"
                       name="image"
                       type="file"
                       accept="image/*"
-                      required
+                      required={!capturedImage}
                       className="hidden"
                       onChange={handleImageChange}
                     />
-                    <Button type="button" variant="outline" onClick={() => document.getElementById("image")?.click()}>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => document.getElementById("image")?.click()}
+                      className="flex-1"
+                    >
                       <Upload className="h-4 w-4 mr-2" />
-                      {mounted && previewUrl ? "Change Photo" : "Upload Photo"}
+                      {mounted && (previewUrl || capturedImage) ? "Change Photo" : "Upload Photo"}
                     </Button>
+
+                    {hasCamera && (
+                      <Button type="button" variant="outline" onClick={() => setShowCamera(true)} className="flex-1">
+                        <Camera className="h-4 w-4 mr-2" />
+                        {mounted && (previewUrl || capturedImage) ? "Retake Photo" : "Take Photo"}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -152,7 +201,7 @@ export default function UploadPage() {
               <Button type="button" variant="outline" onClick={() => router.push("/")} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting || (!previewUrl && !capturedImage)}>
                 {isSubmitting ? "Submitting..." : "Submit Entry"}
               </Button>
             </CardFooter>

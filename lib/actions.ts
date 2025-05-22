@@ -5,10 +5,7 @@ import { revalidatePath } from "next/cache"
 import type { YearbookEntry } from "@/types"
 
 export async function getYearbookEntries(): Promise<YearbookEntry[]> {
-  const { data, error } = await supabase.from("yearbook_entries").select("*").order("created_at", { ascending: false }).overrideTypes<Array<YearbookEntry>>();
-  if(data){
-    console.log(data)
-  }
+  const { data, error } = await supabase.from("yearbook_entries").select("*").order("created_at", { ascending: false })
 
   if (error) {
     console.error("Error fetching yearbook entries:", error)
@@ -29,28 +26,25 @@ export async function uploadYearbookEntry(formData: FormData): Promise<{ success
     }
 
     // Upload image to Supabase Storage
-    const fileName = `${image.name}-${name}`
-    const { data: fileData, error: fileError } = await supabase.storage.from("yearbook-images").upload(fileName, image)
+    const fileName = `${Date.now()}-${image.name || "captured-image.jpg"}`
+    const { data: fileData, error: fileError } = await supabase.storage.from("yearbook_images").upload(fileName, image)
 
     if (fileError) {
       console.error("Error uploading image:", fileError)
       return { success: false, message: "Failed to upload image" }
     }
 
-    console.log(fileData)
-
     // Get public URL for the uploaded image
-    const { data: urlData } = supabase.storage.from("yearbook-images").getPublicUrl(fileName)
+    const { data: urlData } = supabase.storage.from("yearbook_images").getPublicUrl(fileName)
 
     // Insert entry into database
-    const {data: testData, error: dbError } = await supabase.from("yearbook_entries").insert([
+    const { error: dbError } = await supabase.from("yearbook_entries").insert([
       {
         name,
         quote,
         image: urlData.publicUrl,
       },
-    ]);
-
+    ])
 
     if (dbError) {
       console.error("Error inserting entry:", dbError)
