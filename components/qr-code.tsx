@@ -11,7 +11,7 @@ export function YearbookQRCode() {
   useEffect(() => {
     // Only run on client side
     setMounted(true)
-    const baseUrl = window.location.origin
+    const baseUrl = "https://www.super-yearbook.vercel.app"
     setUploadUrl(`${baseUrl}/upload`)
   }, [])
 
