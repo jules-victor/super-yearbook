@@ -19,12 +19,22 @@ export async function uploadYearbookEntry(formData: FormData): Promise<{ success
   try {
     const name = formData.get("name") as string
     const quote = formData.get("quote") as string
+    const email= formData.get("e-mail") as string
     const image = formData.get("image") as File
 
+  
     if (!name || !quote || !image) {
       return { success: false, message: "Missing required fields" }
     }
 
+      const newEntry = {name,
+      quote,
+      email: ""
+    }
+
+    if(email){
+      newEntry.email = email
+    }
     // Upload image to Supabase Storage
     const fileName = `${name}-${image.name || "captured-image.jpg"}`
     const { data: fileData, error: fileError } = await supabase.storage.from("yearbook-images").upload(fileName, image)
@@ -40,8 +50,7 @@ export async function uploadYearbookEntry(formData: FormData): Promise<{ success
     // Insert entry into database
     const { error: dbError } = await supabase.from("yearbook_entries").insert([
       {
-        name,
-        quote,
+        ...newEntry,
         image: urlData.publicUrl,
       },
     ])

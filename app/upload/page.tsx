@@ -139,6 +139,17 @@ export default function UploadPage() {
                 />
               </div>
 
+               <div className="space-y-2">
+                <Label htmlFor="e-mail">Your Email</Label>
+                <Input
+                type="text"
+                  id="e-mail"
+                  name="e-mail"
+                  placeholder="If you want to get it via mail"
+                  required
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label>Your Photo</Label>
                 <div className="flex flex-col items-center gap-4">
