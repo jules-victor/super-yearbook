@@ -52,7 +52,6 @@ export function PolaroidMarquee({ entries }: Props) {
                 className="absolute top-0 left-0 z-10 pointer-events-none overflow-visible aspect-square "
               />
             </div>
-
             {/* Caption */}
             <p className="text-center text-sm mt-2 text-amber-800 font-semibold">
               {entry.name}

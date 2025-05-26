@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import { useEffect, useState } from "react";
 import { YearbookQRCode } from "./qr-code";
@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase-browser";
 import type { YearbookEntry } from "@/types";
 import { Trash } from "lucide-react";
 import { PolaroidMarquee } from "./polaroid-marquee";
-
+import ScatteredPolaroidMarquee from "./scattered-polaroid-marquee";
 interface RealTimeYearbookProps {
   initialEntries: YearbookEntry[];
 }
@@ -39,7 +39,7 @@ export function RealTimeYearbook({ initialEntries }: RealTimeYearbookProps) {
           ]);
 
           // Show notification
-          setNotification({ message: "New entry added! 🎉", type: "add" });
+          setNotification({ message: `Welcome to the club ${payload.new.name ? payload.new.name : ""}! 🎉`, type: "add" });
 
           // Hide notification after 5 seconds
           setTimeout(() => {
@@ -117,7 +117,8 @@ export function RealTimeYearbook({ initialEntries }: RealTimeYearbookProps) {
             {/* Book cover effect */}
             <div className="absolute -inset-4 bg-gradient-to-r from-amber-800 to-amber-700 rounded-lg shadow-xl -z-10"></div>
 
-            <PolaroidMarquee entries={entries} />
+            {/*<PolaroidMarquee entries={entries} />*/}
+            <ScatteredPolaroidMarquee entries={entries}></ScatteredPolaroidMarquee>
           </div>
 
           {/* Notification */}
